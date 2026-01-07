@@ -1,21 +1,17 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"log"
 	"net/http"
 
-	"github.com/go-zeromq/zmq4"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
-	endpoint              = "tcp://pubsub.besteffort.ndovloket.nl:7664"
 	incomingMessagesTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "zmq_incoming_messages_total",
+			Name: "ov_zmq_incoming_messages_total",
 			Help: "Total number of incoming ZeroMQ messages by envelope",
 		},
 		[]string{"uri", "envelope"},
@@ -26,43 +22,27 @@ func init() {
 	prometheus.MustRegister(incomingMessagesTotal)
 }
 
-func listen() {
-	go func() {
-		ctx := context.Background()
-
-		sub := zmq4.NewSub(ctx)
-		defer sub.Close()
-
-		err := sub.Dial(endpoint)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		err = sub.SetOption(zmq4.OptionSubscribe, "")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Println("Listening for messages...")
-
-		for {
-			msg, err := sub.Recv()
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			var envelope = string(msg.Frames[0])
-
-			incomingMessagesTotal.WithLabelValues(endpoint, envelope).Inc()
-
-			log.Printf("Received message with envelope: %s, endpoint: %s", envelope, endpoint)
-		}
-	}()
+func getEndpoints() []string {
+	return []string{
+		"tcp://pubsub.besteffort.ndovloket.nl:7658", // BISON KV6, KV15, KV17
+		"tcp://pubsub.besteffort.ndovloket.nl:7817", // KV78Turbo
+		"tcp://pubsub.besteffort.ndovloket.nl:7664", // NS InfoPlus
+		"tcp://pubsub.besteffort.ndovloket.nl:7666", // SIRI
+	}
 }
 
 func main() {
-	listen()
+	endpoints := getEndpoints()
+
+	log.Printf("Starting listener for %d endpoint(s)", len(endpoints))
+	for _, ep := range endpoints {
+		log.Printf("  - %s", ep)
+	}
+
+	listener := NewListener(endpoints)
+	listener.Start()
 
 	http.Handle("/metrics", promhttp.Handler())
+	log.Println("Prometheus metrics available at :2112/metrics")
 	log.Fatal(http.ListenAndServe(":2112", nil))
 }
