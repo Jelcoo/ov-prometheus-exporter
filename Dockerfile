@@ -16,7 +16,7 @@ RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 
-COPY --from=builder /app/app .
+COPY --from=build /app/app .
 
 EXPOSE 2112
 
