@@ -1,0 +1,4 @@
+services:
+  ov-prometheus-exporter:
+    image: ghcr.io/jelcoo/ov-prometheus-exporter:main
+    restart: unless-stopped
